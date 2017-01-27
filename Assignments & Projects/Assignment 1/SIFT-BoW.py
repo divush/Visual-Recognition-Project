@@ -17,7 +17,7 @@ for label in labels:
 	fn = os.listdir(path)
 	for i in range(len(fn)):
 		fn[i] = path+fn[i]
-	flist.append(fn)
+		flist.append(fn[i])
 
 # At this point, flist contains names of all files, 
 # e.g. 'Dataset/white_rain_sensations_ocean_mist_hydrating_body_wash/N1_354.jpg'
@@ -30,12 +30,19 @@ for fnames in flist:
 	test_names.append(fnames[70:len(fnames)])
 
 descriptors=[]
+ifl = []
 # For each image in the training set!
-for img_class in tr_names:
-	for name in img_class:
-		print("Looking at image"+(str(name)))
-		img = cv2.imread(name, 0)
-		sift = cv2.xfeatures2d.SIFT_create()
-		kp, des = sift.detectAndCompute(img,None)
-		# Pool descriptors for all images!
-		descriptors.append(des)
+# Extract descriptors and store in inverted dictionary.
+count = 1
+for name in tr_names:
+	print("Looking at image"+(str(name)))
+	img = cv2.imread(name, 0)
+	sift = cv2.xfeatures2d.SIFT_create()
+	kp, des = sift.detectAndCompute(img,None)
+	# Pool descriptors for all images!
+	ifl.append(des)
+	descriptors.extend(des)
+	# DEBUGGING :
+	# count = count + 1
+	# if count > 9:
+	# 	break
