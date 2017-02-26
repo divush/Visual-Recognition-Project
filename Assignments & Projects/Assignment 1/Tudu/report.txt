@@ -1,0 +1,23 @@
+CS783/698O : VISUAL RECOGNITION
+README
+*****************************************************************************************************************
+
+Rahul Tudu (13538)
+Divyanshu Shende (13264)
+
+*****************************************************************************************************************
+Code explained:-
+1) 60 images from each folder have been read first and their SURF features have been extracted
+2) SURF features are represented in 64 dimension vector.
+3) For every node, its centroid and size are being calculated and stored.
+4) The SURF features along with their image id are stored in an array of matrices, and each node's size has been recorded so that it is easy to retrieve the features back using node id.
+5) Each node also has a weight assigned after calculating its entropy.
+6) For every database image, it is checked through which nodes its features are passing and for those nodes, weights are added repeatedly.
+7) Similarly for every query image, vectors are calculated using closest similarity to each node.
+8) For each query image, minimum distance between its vector and each database image vector is calculated.
+9) Top 5 matches are printed according to their rank.
+
+The vocabulary tree is built in 5 levels. And the branch factor is set to 4.
+From each folder, 60 images are used for vocabulary tree and 12 images are used for testing purpose.
+The output is shown in this way:-
+test image folder(label):--- folder(labels) of top 5 matches.

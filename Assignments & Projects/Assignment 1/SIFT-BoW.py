@@ -3,11 +3,12 @@ import numpy as np
 from matplotlib import pyplot as plt
 import scipy, pickle
 from sklearn.cluster import KMeans
+import time
 
 lblfile=open('labels', 'r')
 dat = lblfile.read()
 labels = dat.split('\n')
-labels.remove('')
+labels = [x for x in labels if x != '']
 lblfile.close()
 
 # Check - the following should give 84!
@@ -41,9 +42,10 @@ for fname in flist:
 		i=0
 
 descriptors=[]
-ifl = {}
+desc_by_file = {}
 # For each image in the training set!
 # Extract descriptors and store in inverted dictionary.
+
 count = 1
 for name in tr_names:
 	print("Looking at image"+(str(name)))
@@ -52,30 +54,27 @@ for name in tr_names:
 	# Compute SIFT descriptors
 	sift = cv2.xfeatures2d.SIFT_create()
 	kp, des = sift.detectAndCompute(img,None)
-	print(des.shape)
-	print(type(des[0]))
-	print(des[0].shape)
-	u=des[0].tolist
-	print(len(u))
+	# print(type(des))
+	desc_by_file[name] = des
 	# print(len(descriptors))
-	for x in des:
-		# Pool descriptors for all images!
-		type(x)
-		if x not in descriptors:
-			descriptors.append(x)
-
-		# Inverted file list stores file names with descriptors as index!
-		ind = descriptors.index(x)
-		if ind in ifl:
-			ifl[ind].append(name)
-		else:
-			ifl[ind]=[name]
+	descriptors.extend(des)
+	# for x in des:
+	# 	if np.any(descriptors == x) == True:
+	# 		continue
+	# 	else:
+	# 		descriptors.extend(x)
 
 	# DEBUGGING :
 	count = count + 1
 	if count > 10:
 		break
 
+# print(type(descriptors))
+# print(len(descriptors))
+# descriptors = list(set(descriptors))
+# desc_dict = {}
+# for i in range(descriptors):
+# 	desc_dict[i] = descriptors[i]
 # count = len(tr_names)
 count = 10
 print("On to K-Means!\n")
@@ -83,21 +82,56 @@ print("On to K-Means!\n")
 kmeans = KMeans(n_clusters=count, max_iter=100).fit(descriptors)
 print("K-Means completed!")
 
-cluster_imgs = []
-for i in range(count):
-	cluster_imgs.append([])
-
+ifl = {}
 cluster_labels = kmeans.labels_
-for i in range(len(descriptors)):
-	des = descriptors[i]
-	lbl = cluster_labels[i]
-	img_files = ifl[i]
-	for name in img_files:
-		if name not in cluster_imgs[lbl]:
-			cluster_imgs[lbl].append(name)
+# assert(1<0)
+temp_count = 0
+# Now make the inverted file list. Essentially store the labels associated with each point
+for name in tr_names:
+	if temp_count >= 4:
+		break
+	temp_count = temp_count + 1
+	print("Looking at image"+(str(name)))
+	img = cv2.imread(name, 0)
+
+	# Compute SIFT descriptors
+	# print("computing descriptors")
+	# sift = cv2.xfeatures2d.SIFT_create()
+	# kp, des = sift.detectAndCompute(img,None)
+	# print("done computing")
+	hist = [0]*count
+	# print(len(des))
+	# print("histogram building")
+	# this step is taking time!
+	des = desc_by_file[name]
+	ticks_old = time.time()
+	for x in des:
+		# Find index of x in pooled descriptor list
+		# ind = np.where(descriptors == x)
+		# print(ind[0])
+		# print("Finding....")
+		ind = [np.array_equal(x, t) for t in descriptors].index(True)
+		# print("Found.....")
+		# print(type(ind))
+		# if(len(ind) > 1):
+		# 	print("Error!")
+		# ind = descriptors.index(x)
+		# Find the "word" which this belongs to.
+		cluster_x = cluster_labels[ind]
+		# Increase frequency of the word in the training image
+		hist[cluster_x] = hist[cluster_x] + 1
+	ticks_new = time.time()
+	print("time taken = " + str(ticks_new - ticks_old))
+	# Image representation is a histogram!
+	ifl[name] = hist
+	# print("done copying!")
 
 
-test_dict = dict.fromkeys(tr_names, 0)
+# At this point, I have the inverted file list which tells me the set and number of each word in a file. Eg.
+# ifl['img001'] = [1, 2, 3, 2, 5, 4, 4]
+# means that the image 'img001' has 7 words, with two 2's, two 4's and one of each 1, 3, 5
+print("Onto testing!\n")
+fd = open('answers', 'w')
 for name in test_names:
 	print("Testing image " + str(name))
 	img = cv2.imread(name, 0)
@@ -105,33 +139,33 @@ for name in test_names:
 	kp, des = sift.detectAndCompute(img,None)
 
 	# Now comes the matching part! First get the cluster centeres corresponding to each descriptor!
+	hist = [0]*count
 	test_labels = kmeans.predict(des)
-	test_dict = {}
-	for lbl in test_labels:
-		for img_name in cluster_imgs[lbl]:
-			test_dict[img_name] = test_dict[img_name] + 1
-	# We now have in a dictionary all the labels
+	
+	# Now that I have the labels, I can assign make a histogram to represent this image!
+	# This histogram is the representation of my image w.r.t. my vocabulary
+	for x in test_labels:
+		hist[x] = hist[x] + 1
+	# print(hist)
+	# Reference http://vision.cs.utexas.edu/378h-fall2015/slides/lecture17.pdf
+	# The image similiarity score of query (q) and image (i) is <q, i>/(norm(i))
+	similiarity = {}
+	temp = list(ifl.keys())[0:4]
+	for image in temp:
+		score = np.dot(hist, ifl[image])
+		norm = np.dot(ifl[image], ifl[image])
+		similiarity[str(image)] = round((float(score)/norm), 3)
 
+	# Reverse sort by similiarity index!
+	d = sorted(similiarity.items(), key=lambda x: x[1], reverse=True)
+	print(d)
+	towrite = str(name) + " : "
+	for i in range(0,3):
+		towrite = towrite + " " + str(d[i][0])
+	towrite = towrite + "\n"
+	fd.write(towrite)
 
-	for x in test_dict:
-		if test_dict[x] == 0:
-			t = test_dict.pop(x)
-	# Now the dictionary contains only those labels that are non-zero
-	# What this means is that it contains only those filenames that have non-zero descriptors 
-	# matching with the cluster centers
-
-	plt.bar(range(len(test_dict)), test_dict.values(), align='center')
-	plt.xticks(range(len(test_dict)), list(test_dict.keys()))
-	fig = plt.figure()
-	fig.savefig(name)
-
-
-
-
-
-
-
-
+fd.close()
 
 
 
