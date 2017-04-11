@@ -33,4 +33,3 @@ def build_coarse_model():
 	model.compile(loss='mse',optimizer=sgd)
 	print("Modelling has finished\n")
 	return model
-
