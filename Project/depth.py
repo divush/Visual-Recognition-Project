@@ -1,9 +1,9 @@
 #-------------------------------------------------------------------------------
-	VISUAL RECOGNITION PROJECT FOR DEPTH ESTIMATION
-			BY
-		DIVYANSHU SHENDE
-			AND
-		RAHUL TUDU
+#	VISUAL RECOGNITION PROJECT FOR DEPTH ESTIMATION
+#			BY
+#		DIVYANSHU SHENDE
+#			AND
+#		RAHUL TUDU
 #-------------------------------------------------------------------------------
 import tensorflow as tf
 import numpy as np
@@ -135,5 +135,3 @@ def main():
 
 if __name__ == '__main__':
 	main()
-=======
->>>>>>> b03fcbef7d8a1a79e53c56c5e46871fd412c98c9
