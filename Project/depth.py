@@ -76,7 +76,6 @@ def build_coarse_model():
 	model.compile(loss=loss_function, optimizer=sgd)
 	print("Modelling has finished\n")
 	return model
-<<<<<<< HEAD
 
 # takes  the model, images and their labels as inputs
 # saves the weights of the network in model.h5
