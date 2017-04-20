@@ -15,20 +15,21 @@ from keras.layer import Conv2D, MaxPooling2D
 from keras.optimizers import SGD, Adam
 import tensorflow as tf
 import json
+import glob
 from PIL import image
 #-------------------------------------------------
 # FOLDER_PATH = PATH TO IMAGE FOLDER
 image_rows = 304
 image_cols = 228
+#fin_rows = 
+#fin_cols = 
 lamda = 0.5;
 n = 100;
-#-------------------------------------------------
-#
-# Logistics of taking inputs.
-#
-
-# Implement conv1 layer here.
-
+memory = 398
+BATCH = 32
+image path = ""
+label_path = ""
+#--------------------------------------------------
 # defining custom loss function
 # which takes input the predicted and actual depth values
 # takes their logarithms and do further processing
@@ -77,21 +78,9 @@ def build_coarse_model():
 	print("Modelling has finished\n")
 	return model
 
-# takes  the model, images and their labels as inputs
-# saves the weights of the network in model.h5
-# evaluates the final score of the training
-
-def train(model, X_train, Y_train):
-	model.fit(X_train, Y_train, batch_size=32, epochs=20)
-	model.save_weights("model.h5", overwrite=True)
-	with open("model.json", "w") as outfile:
-		json.dump(model.to_json(), outfile)
-	score = model.evaluate(X_train, Y_train)
-	print("Score is {}\n".format(score))
-
 # takes  the model as input
 # and predicts the output for an image
-	
+
 def test(model)
 	model.load_weights("model.h5")
 	sgd = SGD(lr=0.01)
@@ -101,31 +90,60 @@ def test(model)
 	im = Image.fromarray(q)
 	img.save('outputs/myphoto.jpg', 'JPEG')
 
-# processes an image before using it for training
-# takes the path of  the image as input	 
-def process_image(filename):
-	im = Image.open(filename)
-	im = im.convert('1') #convert the image to black and white
-	im = im.resize((image_cols, image_rows), PIL.Image.ANTIALIAS) # resize the image
-	im.load()
-	data = np.asarray( im, dtype="int32")
-	return data
+# a pair of image--label is inserted in a deque
 
-# dummy function for creating the dataset after processing each image
+def create_dataset()
+	pairs = deque()
+	image_set = []
+	label_set = []
+	for filename in glob.glob(image_path + "/*.png"):
+		im = Image.open(filename)
+		im = im.convert('1')
+		im = im.resize((image_cols, image_rows), PIL.Image.ANTIALIAS) # resize the image
+		im.load()
+		data = np.asarray( im, dtype="int32")
+		image_set.append(data)
+	
+	for filename in glob.glob(label_path + "/*.png"):
+		im = Image.open(filename)
+		im = im.convert('1')
+		im = im.resize((fin_cols, fin_rows), PIL.Image.ANTIALIAS) # resize the image
+		im.load()
+		data = np.asarray( im, dtype="int32")
+		label_set.append(data)
+	for i in range(0,398):
+		pairs.append(image_set[i], label_set[i])
 
-def create_dataset(path)
-	# definition of function to create dataset
+	return pairs
 
 # decides whether to train or test
 # calls a function to generate a model
+# training is done on a	set of 32 images taken radomly
+
 def __run(args)
 	model = build_coarse_model()
+	
+	pairs = create_dataset(PATH)
 	if(args['mode'] == 'train'):
-		images, label = create_dataset(FOLDER_PATH)
-		train(model, images, labels)
+		for it in range(0,1000):
+			minibatch = random.sample(pairs, BATCH)
+			inputs = np.zeros(BATCH, image_rows, image_cols)
+			outputs = np.zeros(BATCH, image_rows, image_cols)
+			for i in range(0, len(minibatch)):
+				inputs[i:i+1] = minibatch[i][0]
+				outputs[i:i+1] = minibatch[i][1]
+				prediction = model.predict(inputs)
+			loss = model.train_on_batch(inputs, outputs)
+			print("loss is: {}\n".format(loss))
+			if (it % 100 == 0):
+				print("Saving model !\n")
+				model.save_weights("model.h5", overwrite=True)
+				with open("model.json", "w") as outfile:
+					json.dump(model.to_json(), outfile)
 	else:
-		test(model)
+		#test(model)
 # the main function
+
 def main():
 	parser = argparse.ArgumentParser(description='Depth prediction')
 	parser.add_argument('-m','--mode', help='Train / Run', required=True)
