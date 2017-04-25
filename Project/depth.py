@@ -1,42 +1,45 @@
 #-------------------------------------------------------------------------------
 #	VISUAL RECOGNITION PROJECT FOR DEPTH ESTIMATION
 #			BY
-#		DIVYANSHU SHENDE
+#		  DIVYANSHU SHENDE
 #			AND
-#		RAHUL TUDU
+#		    RAHUL TUDU
 #-------------------------------------------------------------------------------
+#!/usr/bin/env python
 import tensorflow as tf
 import numpy as np
-import keras
+import random
+from collections import deque
 from keras.models import model_from_json
 from keras.models import Sequential
-from keras.layer.core import Dense, Dropout, Activation, Flatten
-from keras.layer import Conv2D, MaxPooling2D
+from keras.layers.core import Dense, Dropout, Activation, Flatten, Reshape
+from keras.layers import Conv2D, MaxPooling2D, Merge
 from keras.optimizers import SGD, Adam
+from keras import backend as K
 import tensorflow as tf
 import json
 import glob
-from PIL import image
+from PIL import Image
+import argparse
 #-------------------------------------------------
 # FOLDER_PATH = PATH TO IMAGE FOLDER
-image_rows = 304
-image_cols = 228
-#fin_rows = 
-#fin_cols = 
-lamda = 0.5;
-n = 100;
-memory = 398
+image_rows = 576
+image_cols = 172
+fin_rows = 142
+fin_cols = 41
+lamda = 0.5
+n = 142*41
+memory = 200
 BATCH = 32
-image path = ""
-label_path = ""
+image_path = "training/image_2"
+label_path = "training/viz_flow_occ"
 #--------------------------------------------------
 # defining custom loss function
 # which takes input the predicted and actual depth values
 # takes their logarithms and do further processing
-
 def loss_function(_true, _pred):
-	_true = np.log(_true)
-	_pred = np.log(_pred)
+	_true = K.log(_true)
+	_pred = K.log(_pred)
 	first = np.subtract(_true, _pred)
 	second = np.subtract(_pred, _true)
 	first = np.square(first)
@@ -54,34 +57,34 @@ def loss_function(_true, _pred):
 def build_coarse_model():
 	print("Now we build model\n")
 	first = Sequential()
-	first.add(Conv2D(96, (11, 11), strides=(4, 4), activation='relu', input_shape=(image_rows, image_cols, 1)))
+	first.add(Conv2D(96, (11, 11), strides=(4, 4), activation='relu', border_mode='same',  input_shape=(image_rows, image_cols, 1)))
 	first.add(MaxPooling2D(pool_size=(2, 2)))
-	first.add(Conv2D(256, (5, 5), strides=(1, 1), activation='relu'))
+	first.add(Conv2D(256, (5, 5), strides=(1, 1), padding='same', activation='relu'))
 	first.add(MaxPooling2D(pool_size=(2, 2)))
-	first.add(Conv2D(384, (3, 3), strides=(1, 1), activation='relu'))
-	first.add(Conv2D(384, (3, 3), strides=(1, 1), activation='relu'))
+	first.add(Conv2D(384, (3, 3), strides=(1, 1), padding='same', activation='relu'))
+	first.add(Conv2D(384, (3, 3), strides=(1, 1), padding='same', activation='relu'))
 	first.add(Conv2D(256, (3, 3), strides=(1, 1), activation='relu'))
-	first.add(Dense(4096))
+	first.add(Flatten())
+	first.add(Dense(5822))
 	first.add(Activation('relu'))
-	first.add(Dense(1))
+	first.add(Reshape((142,41, 1)))
 
 	second = Sequential()
-	second.add(Conv2D(63, (9, 9), strides=(2, 2), activation='relu', input_shape=(image_rows, image_cols, 1)))
+	second.add(Conv2D(63, (9, 9), strides=(2, 2), activation='relu', border_mode='valid', input_shape=(image_rows, image_cols, 1)))
 	second.add(MaxPooling2D(pool_size=(2, 2)))
-	merged = Concatenate([first, second])
 	model = Sequential()
-	model.add(merged)
+	model.add(Merge([first, second], mode = 'concat'))
 	model.add(Conv2D(64, (5, 5), activation='relu'))
 	model.add(Conv2D(1, (5, 5), activation='relu'))
-	sgd = SGD(lr=0.01)
-	model.compile(loss=loss_function, optimizer=sgd)
+	adam = Adam(lr=1e-4)
+	model.compile(loss=loss_function, optimizer=adam)
 	print("Modelling has finished\n")
 	return model
 
 # takes  the model as input
 # and predicts the output for an image
 
-def test(model)
+def test(model):
 	model.load_weights("model.h5")
 	sgd = SGD(lr=0.01)
 	model.compile(loss=loss_function, optimizer=sgd)
@@ -90,16 +93,14 @@ def test(model)
 	im = Image.fromarray(q)
 	img.save('outputs/myphoto.jpg', 'JPEG')
 
-# a pair of image--label is inserted in a deque
-
-def create_dataset()
+def create_dataset():
 	pairs = deque()
 	image_set = []
 	label_set = []
 	for filename in glob.glob(image_path + "/*.png"):
 		im = Image.open(filename)
 		im = im.convert('1')
-		im = im.resize((image_cols, image_rows), PIL.Image.ANTIALIAS) # resize the image
+		im = im.resize((image_cols, image_rows), Image.ANTIALIAS)
 		im.load()
 		data = np.asarray( im, dtype="int32")
 		image_set.append(data)
@@ -107,41 +108,41 @@ def create_dataset()
 	for filename in glob.glob(label_path + "/*.png"):
 		im = Image.open(filename)
 		im = im.convert('1')
-		im = im.resize((fin_cols, fin_rows), PIL.Image.ANTIALIAS) # resize the image
+		im = im.resize((fin_cols, fin_rows), Image.ANTIALIAS)
 		im.load()
 		data = np.asarray( im, dtype="int32")
 		label_set.append(data)
-	for i in range(0,398):
-		pairs.append(image_set[i], label_set[i])
-
+	for i in range(0,200):
+		pairs.append((image_set[i], label_set[i]))
+	print("Dataset created !")
 	return pairs
 
 # decides whether to train or test
 # calls a function to generate a model
 # training is done on a	set of 32 images taken radomly
 
-def __run(args)
-	model = build_coarse_model()
-	
-	pairs = create_dataset(PATH)
-	if(args['mode'] == 'train'):
+def __run(args):
+	model = build_coarse_model()	
+	pairs = create_dataset()
+	if(args['mode'] == 'Train'):
 		for it in range(0,1000):
+			print("Batch number: ", it, "; ")
 			minibatch = random.sample(pairs, BATCH)
-			inputs = np.zeros(BATCH, image_rows, image_cols)
-			outputs = np.zeros(BATCH, image_rows, image_cols)
+			inputs = np.zeros((BATCH, image_rows, image_cols))
+			outputs = np.zeros((BATCH, fin_rows, fin_cols))
 			for i in range(0, len(minibatch)):
-				inputs[i:i+1] = minibatch[i][0]
-				outputs[i:i+1] = minibatch[i][1]
-				prediction = model.predict(inputs)
-			loss = model.train_on_batch(inputs, outputs)
-			print("loss is: {}\n".format(loss))
+				inputs[i:i+1] = minibatch[i][0].reshape(1, 1, image_rows, image_cols)
+				outputs[i:i+1] = minibatch[i][1].reshape(1, 1, fin_rows, fin_cols)
+				prediction = model.predict([minibatch[i][0].reshape(1, image_rows, image_cols, 1), minibatch[i][0].reshape(1, image_rows, image_cols, 1)])
+			loss = model.train_on_batch([inputs, inputs], outputs)
+			print("Loss: ", loss, "\n" )
 			if (it % 100 == 0):
 				print("Saving model !\n")
 				model.save_weights("model.h5", overwrite=True)
 				with open("model.json", "w") as outfile:
 					json.dump(model.to_json(), outfile)
 	else:
-		#test(model)
+		test(model)
 # the main function
 
 def main():
