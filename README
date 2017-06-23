@@ -1,0 +1,1 @@
+This is a project done in collaboration with Rahul Tudu (https://github.com/rahultudu) for the course Visual Recognition at IIT Kanpur. The course was taken by Prof. Vinay Namboodiri. This project implements a NIPS 2014 paper by Zeiler et. al. on Depth Recognition. Keras has been used for implementation.
