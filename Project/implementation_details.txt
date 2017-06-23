@@ -1,3 +1,0 @@
-All hidden layers use rectified linear units for activations, with the exception of the coarse output layer 7.
-Dropout is applied to the fully-connected hidden layer 6.
-Learning rates are: 0.001 for coarse convolutional layers 1-5, 0.1 for coarse full layers 6 and 7, 0.001 for fine layers 1 and 3, and 0.01 for fine layer 2
